@@ -79,7 +79,7 @@ def post_to_slack(task_react, task_definition_arn, cluster_arn, last_status):
     #     task_definition_arn,
     # )
 
-    if last_status = "STOPPED":
+    if last_status == "STOPPED":
         cluster = cluster_arn.split('/')
         cluster = cluster[-1]
 
