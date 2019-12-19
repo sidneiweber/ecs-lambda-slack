@@ -11,21 +11,58 @@ resend the notification.
 """
 from json import dumps
 from os import environ
+# from re import (
+#     search
+# )
+
 import requests
 from boto3 import client
 
 
 def handler(event, context):
     task_definition_arn = event["detail"]["taskDefinitionArn"]
-    task_group = event["detail"]["group"]
+    task_react = event["detail"]["stoppedReason"]
     cluster_arn = event["detail"]["clusterArn"]
+    last_status = event["detail"]["lastStatus"]
     event_json = dumps(event)
 
     #process_record(cluster_arn, task_group, task_definition_arn, event_json)
-    post_to_slack(task_group, task_definition_arn)
+    post_to_slack(task_react, task_definition_arn, cluster_arn, last_status)
 
 
-def post_to_slack(task_group, task_definition_arn):
+#def get_message_key(cluster_arn, task_definition_arn, task_group):
+#    m = search(r"/(.*)", cluster_arn)
+#    cluster_name = m.group(1)
+#
+#    m = search(r"/(.*)", task_definition_arn)
+#    task_definition_name = m.group(1)
+#
+#    return "{}/{}/{}-failure-message.json".format(cluster_name, task_group, task_definition_name)
+
+
+#def check_for_message(s3, bucket_name, message_key):
+#    """
+#    Check if the message already exists in the bucket
+#
+#
+#    :s3: S3 client
+#    :bucket_name: Name of the bucket
+#    :message_key: Key of the message to look for
+#    :returns: False if the message doesn't exist and true if it does
+#
+#    """
+#    try:
+#        s3.get_object(
+    #         Bucket=bucket_name,
+    #         Key=message_key,
+    #     )
+    #     return True
+    # except Exception as e:
+    #     print(e)  # noqa
+    #     return False
+
+
+def post_to_slack(task_react, task_definition_arn, cluster_arn, last_status):
     """
     Post failure message to slack
 
@@ -36,19 +73,30 @@ def post_to_slack(task_group, task_definition_arn):
     """
     webhook_url = environ["SLACK_WEBHOOK_URL"]
 
-    message = "The task [{}] is failing to deploy to [{}]".format(
-        task_group,
-        task_definition_arn,
-    )
-    slack_data = {"text": message}
+    # message = "The Cluster [{}] task [{}] is failing to deploy to [{}]".format(
+    #     cluster_arn,
+    #     task_react,
+    #     task_definition_arn,
+    # )
 
-    response = requests.post(
-        webhook_url, data=dumps(slack_data),
-        headers={'Content-Type': 'application/json'}
-    )
+    if last_status = "STOPPED":
+        cluster = cluster_arn.split('/')
+        cluster = cluster[-1]
 
-    if response.status_code != 200:
-        print("Error posting the message to slack, response wasn't 200")  # noqa
-        return False
+        task_definition = task_definition_arn.split('/')
+        task_definition = task_definition[-1]
+    
+        slack_data = {"text": "ECS Task State Change", "attachments":[{"color":"#D00000","fields":[{"title": "Cluster","value": cluster}, {"title": "TaskDefinition","value": task_definition}, {"title": "ExitStatus","value": task_react}, {"title": "LastStatus","value": last_status}]}]}
+        #slack_data = {"text": message, "attachments":[{"color":"#D00000","fields":[{"title":cluster,"value":"É muito mais fácil do que eu esperava."}]}]}
 
-    return True
+        response = requests.post(
+            webhook_url, data=dumps(slack_data),
+            headers={'Content-Type': 'application/json'}
+        )
+
+        if response.status_code != 200:
+            print("Error posting the message to slack, response wasn't 200")  # noqa
+            return False
+
+        return True
+
